@@ -1,5 +1,4 @@
-# ディープラーニングによる異常検知手法ALOCCを実装した
-[Qiitaに書いた記事](https://qiita.com/kzkadc/items/334c3d85c2acab38f105)のコードです。
+# ディープラーニングによる異常検知手法ALOCC
 
 ## 準備
 ChainerとOpenCVを使います。  
