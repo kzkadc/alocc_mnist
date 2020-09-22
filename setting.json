@@ -1,25 +1,27 @@
 {
-	"iteration": 100000,
-	"iterator":{
-		"batch_size": 128
-	},
-	"optimizer":{
-		"alpha": 0.0002,
-		"beta1": 0.5,
-		"beta2": 0.9
-	},
-	"updater":{
-		"n_dis": 1,
-		"l2_lam": 0.2,
-		"noise_std": 0.155
-	},
-	"regularization":{
-		"weight_decay": 0.00001
-	},
-	"label":{
-		"": "↓正常とみなす数字のリスト",
-		"neg": [1],
-		"": "↓異常とみなす数字のリスト",
-		"pos": [0]
-	}
+    "iteration": 100000,
+    "iterator": {
+        "batch_size": 128
+    },
+    "optimizer": {
+        "alpha": 0.0002,
+        "beta1": 0.5,
+        "beta2": 0.9
+    },
+    "updater": {
+        "n_dis": 1,
+        "l2_lam": 0.2,
+        "noise_std": 0.155
+    },
+    "regularization": {
+        "weight_decay": 0.00001
+    },
+    "label": {
+        "neg": [
+            1
+        ],
+        "pos": [
+            0
+        ]
+    }
 }
