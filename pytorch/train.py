@@ -86,7 +86,10 @@ def main(args):
     trainer.add_event_handler(Events.ITERATION_COMPLETED(every=1000), printer)
     trainer.add_event_handler(Events.ITERATION_COMPLETED(every=1000), img_saver)
 
-    trainer.run(neg_loader, max_epochs=setting["iteration"] // setting["iterator"]["batch_size"])
+    # 指定されたiterationで終了
+    trainer.add_event_handler(Events.ITERATION_COMPLETED(once=setting["iteration"]),
+                              lambda engine: engine.terminate())
+    trainer.run(neg_loader, max_epochs=10**10)
 
 
 def get_mnist_num(dig_set: set, train=True):
