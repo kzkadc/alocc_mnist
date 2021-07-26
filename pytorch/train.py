@@ -64,7 +64,7 @@ def main(args):
                              betas=(setting["optimizer"]["beta1"], setting["optimizer"]["beta2"]),
                              weight_decay=setting["regularization"]["weight_decay"])
 
-    trainer = Engine(GANTrainer(device, generator, discriminator, opt_g, opt_d, **setting["updater"]))
+    trainer = Engine(GANTrainer(generator, discriminator, opt_g, opt_d, device=device, **setting["updater"]))
 
     # テスト用
     test_neg = get_mnist_num(set(setting["label"]["neg"]), train=False)
@@ -101,15 +101,22 @@ def get_mnist_num(dig_set: set, train=True):
 
 
 class GANTrainer:
-    def __init__(self, device:'cpu', gen: nn.Module, dis: nn.Module,
-                 opt_gen, opt_dis, l2_lam: float, noise_std: float, n_dis: int = 1):
+    def __init__(self,
+                 gen: nn.Module,
+                 dis: nn.Module,
+                 opt_gen: torch.optim.Optimizer,
+                 opt_dis: torch.optim.Optimizer,
+                 l2_lam: float,
+                 noise_std: float,
+                 n_dis: int = 1,
+                 device: torch.device = torch.device("cpu")):
         self.gen = gen
         self.dis = dis
         self.opt_gen = opt_gen
         self.opt_dis = opt_dis
         self.l2_lam = l2_lam
         self.noise_std = noise_std
-        self.n_dis = 1
+        self.n_dis = n_dis
         self.device = device
 
     def prepare_batch(self, batch):
