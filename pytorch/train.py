@@ -34,10 +34,7 @@ def parse_args():
 
 def main(args):
     result_dir_path = Path(args.result_dir)
-    try:
-        result_dir_path.mkdir(parents=True)
-    except FileExistsError:
-        pass
+    result_dir_path.mkdir(parents=True, exist_ok=True)
 
     with Path(args.setting).open("r") as f:
         setting = json.load(f)
@@ -189,10 +186,7 @@ class GANTrainer:
 
 # 生成画像を保存
 def save_img(generator: nn.Module, pos_data, neg_data, out: Path, noise_std: float, device):
-    try:
-        out.mkdir(parents=True)
-    except FileExistsError:
-        pass
+    out.mkdir(parents=True, exist_ok=True)
 
     def _save_img(engine):
         generator.eval()
