@@ -3,6 +3,8 @@ from torch import nn
 
 import numpy as np
 
+from dataclasses import dataclass
+
 kwds = {
     "kernel_size": 4,
     "stride": 2,
@@ -66,20 +68,21 @@ def get_generator():
     )
 
 
+@dataclass
 class Detector(nn.Module):
     """
     テスト用
     GeneratorとDiscriminatorを保持して分類器のように振る舞う
     """
+    gen: nn.Module
+    dis: nn.Module
+    noise_std: float
+    device: torch.device
 
-    def __init__(self, gen: nn.Module, dis: nn.Module, noise_std: float, device):
+    def __post_init__(self):
         super().__init__()
-        self.gen = gen
-        self.dis = dis
-        self.noise_std = noise_std
-        self.device = device
 
-    def __call__(self, x: torch.Tensor):
+    def __call__(self, x: torch.Tensor) -> torch.Tensor:
         noise = np.random.normal(0, self.noise_std, size=x.shape)
         noise = torch.from_numpy(noise).float().to(self.device)
         x_noise = (x + noise).clamp(0.0, 1.0)
