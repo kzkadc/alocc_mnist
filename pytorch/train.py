@@ -64,7 +64,7 @@ def main(args):
                              betas=(setting["optimizer"]["beta1"], setting["optimizer"]["beta2"]),
                              weight_decay=setting["regularization"]["weight_decay"])
 
-    trainer = Engine(GANTrainer(generator, discriminator, opt_g, opt_d, **setting["updater"]))
+    trainer = Engine(GANTrainer(device, generator, discriminator, opt_g, opt_d, **setting["updater"]))
 
     # テスト用
     test_neg = get_mnist_num(set(setting["label"]["neg"]), train=False)
@@ -101,8 +101,8 @@ def get_mnist_num(dig_set: set, train=True):
 
 
 class GANTrainer:
-    def __init__(self, gen: nn.Module, dis: nn.Module,
-                 opt_gen, opt_dis, l2_lam: float, noise_std: float, n_dis: int = 1, device="cpu"):
+    def __init__(self, device:'cpu', gen: nn.Module, dis: nn.Module,
+                 opt_gen, opt_dis, l2_lam: float, noise_std: float, n_dis: int = 1):
         self.gen = gen
         self.dis = dis
         self.opt_gen = opt_gen
