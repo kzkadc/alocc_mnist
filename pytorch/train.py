@@ -1,19 +1,19 @@
+import pprint
+from pathlib import Path
+import json
+from dataclasses import dataclass, InitVar
+
 import torch
 from torch import nn
 import torch.nn.functional as F
 from torch.utils.data import DataLoader, Subset
 from torchvision.datasets import MNIST
-from ignite.engine.engine import Engine, Events
+from ignite.engine import Engine, Events
 
 import numpy as np
 import cv2
 from sklearn import metrics
 import matplotlib.pyplot as plt
-
-import pprint
-from pathlib import Path
-import json
-from dataclasses import dataclass, InitVar
 
 from model import get_discriminator, get_generator, Detector
 
@@ -57,11 +57,13 @@ def main(args):
     discriminator = get_discriminator().to(device)
     opt_g = torch.optim.Adam(generator.parameters(),
                              lr=setting["optimizer"]["alpha"],
-                             betas=(setting["optimizer"]["beta1"], setting["optimizer"]["beta2"]),
+                             betas=(setting["optimizer"]["beta1"],
+                                    setting["optimizer"]["beta2"]),
                              weight_decay=setting["regularization"]["weight_decay"])
     opt_d = torch.optim.Adam(discriminator.parameters(),
                              lr=setting["optimizer"]["alpha"],
-                             betas=(setting["optimizer"]["beta1"], setting["optimizer"]["beta2"]),
+                             betas=(setting["optimizer"]["beta1"],
+                                    setting["optimizer"]["beta2"]),
                              weight_decay=setting["regularization"]["weight_decay"])
 
     trainer = Engine(
@@ -84,17 +86,21 @@ def main(args):
                         device, compile_model=args.compile_model).to(device)
 
     log_dict = {}
-    evaluator = evaluate_accuracy(log_dict, detector, test_neg_loader, test_pos_loader, device)
+    evaluator = evaluate_accuracy(
+        log_dict, detector, test_neg_loader, test_pos_loader, device)
     plotter = plot_metrics(log_dict, ["accuracy", "precision", "recall", "f"], "iteration",
                            result_dir_path / "metrics.pdf")
-    printer = print_logs(log_dict, ["iteration", "accuracy", "precision", "recall", "f"])
+    printer = print_logs(
+        log_dict, ["iteration", "accuracy", "precision", "recall", "f"])
     img_saver = save_img(generator, test_pos, test_neg, result_dir_path / "images",
                          setting["updater"]["noise_std"], device)
 
-    trainer.add_event_handler(Events.ITERATION_COMPLETED(every=1000), evaluator)
+    trainer.add_event_handler(
+        Events.ITERATION_COMPLETED(every=1000), evaluator)
     trainer.add_event_handler(Events.ITERATION_COMPLETED(every=1000), plotter)
     trainer.add_event_handler(Events.ITERATION_COMPLETED(every=1000), printer)
-    trainer.add_event_handler(Events.ITERATION_COMPLETED(every=1000), img_saver)
+    trainer.add_event_handler(
+        Events.ITERATION_COMPLETED(every=1000), img_saver)
 
     # 指定されたiterationで終了
     trainer.add_event_handler(Events.ITERATION_COMPLETED(once=setting["iteration"]),
@@ -166,7 +172,8 @@ class GANTrainer:
         # update generator
         # 生成した画像に対してDが1を出すようにする
         x_ = x[self.n_dis * batch_size:(self.n_dis + 1) * batch_size]
-        x_noisy_ = x_noisy[self.n_dis * batch_size:(self.n_dis + 1) * batch_size]
+        x_noisy_ = x_noisy[self.n_dis *
+                           batch_size:(self.n_dis + 1) * batch_size]
 
         self.opt_gen.zero_grad()
         self.opt_dis.zero_grad()
@@ -212,6 +219,7 @@ class GANTrainer:
 def save_img(generator: nn.Module, pos_data, neg_data, out: Path, noise_std: float, device):
     out.mkdir(parents=True, exist_ok=True)
 
+    @torch.no_grad()
     def _save_img(engine):
         generator.eval()
 
@@ -229,54 +237,60 @@ def save_img(generator: nn.Module, pos_data, neg_data, out: Path, noise_std: flo
 
         # 保存
         temp = (pos_img * 255).astype(np.uint8).squeeze()
-        cv2.imwrite(str(out / f"in_pos_iter_{engine.state.iteration:06d}.png"), temp)
+        cv2.imwrite(
+            str(out / f"in_pos_iter_{engine.state.iteration:06d}.png"), temp)
         temp = (neg_img * 255).astype(np.uint8).squeeze()
-        cv2.imwrite(str(out / f"in_neg_iter_{engine.state.iteration:06d}.png"), temp)
+        cv2.imwrite(
+            str(out / f"in_neg_iter_{engine.state.iteration:06d}.png"), temp)
 
         # shapeを調整
         pos_img = torch.from_numpy(pos_img).float().unsqueeze(0).to(device)
         neg_img = torch.from_numpy(neg_img).float().unsqueeze(0).to(device)
 
-        with torch.no_grad():
-            # 再構築
-            pos_recon = generator(pos_img).detach().cpu().numpy() * 255
-            neg_recon = generator(neg_img).detach().cpu().numpy() * 255
+        # 再構築
+        pos_recon = generator(pos_img).detach().cpu().numpy() * 255
+        neg_recon = generator(neg_img).detach().cpu().numpy() * 255
 
         pos_recon = pos_recon.squeeze().astype(np.uint8)
         neg_recon = neg_recon.squeeze().astype(np.uint8)
-        cv2.imwrite(str(out / f"out_pos_iter_{engine.state.iteration:06d}.png"), pos_recon)
-        cv2.imwrite(str(out / f"out_neg_iter_{engine.state.iteration:06d}.png"), neg_recon)
+        cv2.imwrite(
+            str(out / f"out_pos_iter_{engine.state.iteration:06d}.png"), pos_recon)
+        cv2.imwrite(
+            str(out / f"out_neg_iter_{engine.state.iteration:06d}.png"), neg_recon)
 
     return _save_img
 
 
 def evaluate_accuracy(log_dict: dict, detector: nn.Module, neg_loader, pos_loader, device):
     # テストデータに対して精度を評価
+
+    @torch.no_grad()
     def _evaluate(engine):
         detector.eval()
         neg_preds = []
         pos_preds = []
         labels = []
-        with torch.no_grad():
-            for batch in neg_loader:
-                y = _inference(batch)
-                neg_preds.append(y)
 
-            neg_preds = torch.cat(neg_preds).detach().cpu().numpy()
-            labels.append(np.zeros(len(neg_preds), dtype=np.int32))
+        for batch in neg_loader:
+            y = _inference(batch)
+            neg_preds.append(y)
 
-            for batch in pos_loader:
-                y = _inference(batch)
-                pos_preds.append(y)
+        neg_preds = torch.cat(neg_preds).detach().cpu().numpy()
+        labels.append(np.zeros(len(neg_preds), dtype=np.int32))
 
-            pos_preds = torch.cat(pos_preds).detach().cpu().numpy()
-            labels.append(np.ones(len(pos_preds), dtype=np.int32))
+        for batch in pos_loader:
+            y = _inference(batch)
+            pos_preds.append(y)
+
+        pos_preds = torch.cat(pos_preds).detach().cpu().numpy()
+        labels.append(np.ones(len(pos_preds), dtype=np.int32))
 
         labels = np.concatenate(labels)
         preds = np.concatenate([neg_preds, pos_preds])
 
         accuracy = metrics.accuracy_score(labels, preds)
-        precision, recall, f, _ = metrics.precision_recall_fscore_support(labels, preds, zero_division=0)
+        precision, recall, f, _ = metrics.precision_recall_fscore_support(
+            labels, preds, zero_division=0)
 
         _append_metrics("iteration", engine.state.iteration)
         _append_metrics("accuracy", accuracy)

@@ -63,7 +63,8 @@ def get_generator():
         nn.ConvTranspose2d(N_CH * 2, N_CH, **kwds),  # (14,14)
         nn.BatchNorm2d(N_CH),
         nn.LeakyReLU(0.2, inplace=True),
-        nn.ConvTranspose2d(N_CH, 1, kernel_size=4, stride=2, padding=1),    # (28,28)
+        nn.ConvTranspose2d(N_CH, 1, kernel_size=4, stride=2,
+                           padding=1),    # (28,28)
         nn.Sigmoid()
     )
 
@@ -92,6 +93,7 @@ class Detector(nn.Module):
             except RuntimeError as e:
                 print(f"torch.compile failed: {e}")
 
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
         noise = np.random.normal(0, self.noise_std, size=x.shape)
         noise = torch.from_numpy(noise).float().to(self.device)
         x_noise = (x + noise).clamp(0.0, 1.0)
