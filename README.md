@@ -3,13 +3,6 @@ Sabokrou, et al. "Adversarially Learned One-Class Classifier for Novelty Detecti
 
 https://arxiv.org/abs/1802.09088
 
-## 準備 (Chainer)
-ChainerとOpenCVを使います。  
-インストール：
-```bash
-$ sudo pip install chainer opencv-python
-```
-
 ## 準備 (PyTorch)
 PyTorch, PyTorch-Ignite, OpenCV, Matplotlib, scikit-learnを使います。
 

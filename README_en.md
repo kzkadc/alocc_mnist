@@ -5,13 +5,6 @@ Sabokrou, et al. "Adversarially Learned One-Class Classifier for Novelty Detecti
 
 https://arxiv.org/abs/1802.09088
 
-## Requirements (Chainer)
-Requires Chainer and OpenCV.
-
-Installation:  
-```bash
-$ sudo pip install chainer opencv-python
-```
 
 ## Requirements (PyTorch)
 Requires PyTorch, PyTorch-Ignite, OpenCV, Matplotlib, and scikit-learn.
