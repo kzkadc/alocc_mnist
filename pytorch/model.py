@@ -1,9 +1,9 @@
+from dataclasses import dataclass, InitVar
+
 import torch
 from torch import nn
 
 import numpy as np
-
-from dataclasses import dataclass
 
 kwds = {
     "kernel_size": 4,
@@ -74,19 +74,28 @@ class Detector(nn.Module):
     テスト用
     GeneratorとDiscriminatorを保持して分類器のように振る舞う
     """
-    gen: nn.Module
-    dis: nn.Module
+    gen: InitVar[nn.Module]
+    dis: InitVar[nn.Module]
     noise_std: float
     device: torch.device
+    compile_model: InitVar[bool]
 
-    def __post_init__(self):
+    def __post_init__(self, gen: nn.Module, dis: nn.Module, compile_model: bool):
         super().__init__()
 
-    def __call__(self, x: torch.Tensor) -> torch.Tensor:
+        self._gen = gen
+        self._dis = dis
+        if compile_model:
+            try:
+                self._gen = torch.compile(gen)
+                self._dis = torch.compile(dis)
+            except RuntimeError as e:
+                print(f"torch.compile failed: {e}")
+
         noise = np.random.normal(0, self.noise_std, size=x.shape)
         noise = torch.from_numpy(noise).float().to(self.device)
         x_noise = (x + noise).clamp(0.0, 1.0)
-        x_recon = self.gen(x_noise)
-        y = self.dis(x_recon)
+        x_recon = self._gen(x_noise)
+        y = self._dis(x_recon)
 
         return y

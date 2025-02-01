@@ -13,7 +13,7 @@ import matplotlib.pyplot as plt
 import pprint
 from pathlib import Path
 import json
-from dataclasses import dataclass
+from dataclasses import dataclass, InitVar
 
 from model import get_discriminator, get_generator, Detector
 
@@ -25,6 +25,8 @@ def parse_args():
     parser.add_argument("result_dir")
     parser.add_argument("-g", type=int, default=-1,
                         help="GPU ID (negative value indicates CPU mode)")
+    parser.add_argument("--compile_model",
+                        action="store_true", help="compile model")
 
     args = parser.parse_args()
 
@@ -62,14 +64,24 @@ def main(args):
                              betas=(setting["optimizer"]["beta1"], setting["optimizer"]["beta2"]),
                              weight_decay=setting["regularization"]["weight_decay"])
 
-    trainer = Engine(GANTrainer(generator, discriminator, opt_g, opt_d, device=device, **setting["updater"]))
+    trainer = Engine(
+        GANTrainer(
+            generator,
+            discriminator, opt_g,
+            opt_d, device=device,
+            compile_model=args.compile_model,
+            **setting["updater"]
+        )
+    )
 
     # テスト用
     test_neg = get_mnist_num(set(setting["label"]["neg"]), train=False)
     test_neg_loader = DataLoader(test_neg, setting["iterator"]["batch_size"])
     test_pos = get_mnist_num(set(setting["label"]["pos"]), train=False)
     test_pos_loader = DataLoader(test_pos, setting["iterator"]["batch_size"])
-    detector = Detector(generator, discriminator, setting["updater"]["noise_std"], device).to(device)
+    detector = Detector(generator, discriminator,
+                        setting["updater"]["noise_std"],
+                        device, compile_model=args.compile_model).to(device)
 
     log_dict = {}
     evaluator = evaluate_accuracy(log_dict, detector, test_neg_loader, test_pos_loader, device)
@@ -100,14 +112,26 @@ def get_mnist_num(dig_set: set, train=True):
 
 @dataclass
 class GANTrainer:
-    gen: nn.Module
-    dis: nn.Module
+    gen: InitVar[nn.Module]
+    dis: InitVar[nn.Module]
     opt_gen: torch.optim.Optimizer
     opt_dis: torch.optim.Optimizer
     l2_lam: float
     noise_std: float
     n_dis: int = 1
     device: torch.device = torch.device("cpu")
+    compile_model: InitVar[bool] = False
+
+    def __post_init__(self, gen: nn.Module, dis: nn.Module, compile_model: bool):
+        self._gen = gen
+        self._dis = dis
+
+        if compile_model:
+            try:
+                self._gen = torch.compile(gen)
+                self._dis = torch.compile(dis)
+            except RuntimeError as e:
+                print(f"torch.compile failed: {e}")
 
     def prepare_batch(self, batch):
         x, _ = batch
@@ -121,8 +145,8 @@ class GANTrainer:
         x, x_noisy = self.prepare_batch(batch)
         batch_size = len(x) // (self.n_dis + 1)
 
-        self.gen.train()
-        self.dis.train()
+        self._gen.train()
+        self._dis.train()
 
         # update discriminator
         # 本物に対しては1，偽物に対しては0を出すように学習
@@ -132,7 +156,7 @@ class GANTrainer:
 
             x_ = x[i * batch_size:(i + 1) * batch_size]
             x_noisy_ = x_noisy[i * batch_size:(i + 1) * batch_size]
-            x_fake = self.gen(x_noisy_).detach()
+            x_fake = self._gen(x_noisy_).detach()
 
             loss_dis = self.discriminator_loss(x_fake, x_)
 
@@ -147,7 +171,7 @@ class GANTrainer:
         self.opt_gen.zero_grad()
         self.opt_dis.zero_grad()
 
-        x_fake = self.gen(x_noisy_)
+        x_fake = self._gen(x_noisy_)
         loss_dict = self.generator_loss(x_fake, x_)
 
         loss_dict["loss_gen_total"].backward()
@@ -160,18 +184,18 @@ class GANTrainer:
         }
 
     def discriminator_loss(self, x_fake, x_real):
-        d_real = self.dis(x_real)
+        d_real = self._dis(x_real)
         ones = torch.ones(len(d_real), dtype=torch.long, device=self.device)
         loss_d_real = F.cross_entropy(d_real, ones)
 
-        d_fake = self.dis(x_fake)
+        d_fake = self._dis(x_fake)
         zeros = torch.zeros(len(d_fake), dtype=torch.long, device=self.device)
         loss_d_fake = F.cross_entropy(d_fake, zeros)
 
         return loss_d_real + loss_d_fake
 
     def generator_loss(self, x_fake, x_real) -> dict:
-        d_fake = self.dis(x_fake)
+        d_fake = self._dis(x_fake)
         ones = torch.ones(len(d_fake), dtype=torch.long, device=self.device)
         loss_gen = F.cross_entropy(d_fake, ones)
 
